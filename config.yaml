@@ -1,5 +1,5 @@
-DEV_MODE: dev ##user or dev, cambia la autorizacion sobre cosas que se pueden hacer
-DEVICE: cpu
+DEV_MODE: dev #user or dev, cambia la autorizacion sobre cosas que se pueden hacer
+DEVICE: cuda
 
 MODELS_DIR: ./models
 

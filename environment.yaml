@@ -31,3 +31,4 @@ dependencies:
   - SpeechRecognition==3.10.3
   - pyttsx3==2.90
   - pyaudio==0.2.14
+  # conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
