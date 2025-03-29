@@ -1,5 +1,5 @@
 dependencies:
-  # - python=3.11.4
+  - python=3.11
   - pip=23.2.1
   - pip:
       - chromadb==0.4.24
