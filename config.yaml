@@ -10,8 +10,8 @@ VECTORDB_PATH: vectordb/chroma
 
 TTS_PATH: src/tmp
 
-USE_CTRANSFORMERS: True
-LLM_PATH: mistral-7b-instruct-v0.2.Q5_K_M.gguf
+USE_CTRANSFORMERS: False
+LLM_PATH: mixtral_7bx2_moe.Q8_0.gguf
 PROMPT_TYPE: mistral
 
 LLM_CONFIG:
