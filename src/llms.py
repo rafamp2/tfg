@@ -31,7 +31,8 @@ def build_llm():
                 "max_tokens": CFG.LLM_CONFIG.MAX_NEW_TOKENS,
                 "temperature": CFG.LLM_CONFIG.TEMPERATURE,
                 "repeat_penalty": CFG.LLM_CONFIG.REPETITION_PENALTY,
-                "n_ctx": CFG.LLM_CONFIG.CONTEXT_LENGTH,
+                "n_ctx": CFG.LLM_CONFIG.N_CTX,
+                "n_gpu_layers": CFG.LLM_CONFIG.N_GPU_LAYERS,
             },
         )
     elif CFG.LLM_PATH.startswith("http"):

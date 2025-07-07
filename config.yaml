@@ -1,7 +1,7 @@
-DEV_MODE: dev #user or dev, cambia la autorizacion sobre cosas que se pueden hacer
+DEV_MODE: user ##user or dev, cambia la autorizacion sobre cosas que se pueden hacer
 DEVICE: cuda
 
-MODELS_DIR: ./models
+MODELS_DIR: ./tfg_marta/models
 
 EMBEDDINGS_PATH: all-MiniLM-L6-v2
 
@@ -11,7 +11,12 @@ VECTORDB_PATH: vectordb/chroma
 TTS_PATH: src/tmp
 
 USE_CTRANSFORMERS: False
-LLM_PATH: mixtral_7bx2_moe.Q8_0.gguf
+#mistral7b q5: mistral-7b-instruct-v0.2.Q5_K_M.gguf
+#mistral7b q6: mistral-7b-instruct-v0.2.Q6_K.gguf
+#mistral7b q8: mistral-7b-instruct-v0.2.Q8_0.gguf
+#llama7b q5: llama-7b.Q5_K_M.gguf
+#llama7b q6: llama-7b.Q6_K.gguf
+LLM_PATH: mistral-7b-instruct-v0.2.Q8_0.gguf
 PROMPT_TYPE: mistral
 
 LLM_CONFIG:
@@ -19,6 +24,8 @@ LLM_CONFIG:
   TEMPERATURE: 0.2
   REPETITION_PENALTY: 1.1
   CONTEXT_LENGTH: 4000
+  N_CTX: 2048
+  N_GPU_LAYERS: 28
 
 BASE_RETRIEVER_CONFIG:
   SEARCH_K: 4

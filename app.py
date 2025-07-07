@@ -124,7 +124,7 @@ def dev_mode():
 
         
 
-# Función principal que se ejecuta desde el main
+
 def doc_conv_qa():
     with st.sidebar:
         st.title("Conversación con Don Francisco de Arobe")
@@ -145,7 +145,6 @@ def doc_conv_qa():
         if user_mode == "dev":
             dev_mode()
         if user_mode == "user":
-            # Contruimos la db si no existe
             uploaded_file = "./data/FranciscodeArobe.pdf"
             if not os.path.exists(CFG.VECTORDB_PATH):
                 st.info("Se debe construir el VectorDB primero.")
@@ -157,7 +156,6 @@ def doc_conv_qa():
                 load_vectordb.clear()
 
         try:
-            # Cargamos la db
             with st.status("Carga de datos", expanded=False) as status:
                 vectordb = load_vectordb()
                 st.write("VectorDB: Carga Completada.")
@@ -173,7 +171,7 @@ def doc_conv_qa():
 
     st.sidebar.write("---")
     init_chat_history()
-    audio_manager.config_tts() # TODO modificar para la voz
+    audio_manager.config_tts()
     ee.empty()
 
     # Desplegar historial del chat en container c
@@ -210,7 +208,6 @@ def doc_conv_qa():
                 st.markdown(user_query)
             with ee:
                 with st.spinner('Obteniendo respuesta de la IA...'):
-                    # TODO esto es lo que tarda
                     response = retrieval_chain.invoke({
                         "question": user_query,
                         "chat_history": st.session_state.chat_history,},)
