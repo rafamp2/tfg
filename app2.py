@@ -1,7 +1,6 @@
 import os
 
 import streamlit as st
-import speech_recognition as sr
 from PIL import Image
 
 from src import CFG
