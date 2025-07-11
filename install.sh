@@ -15,8 +15,16 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Comprobar si el entorno ya existe
 if conda env list | grep -qE "^$ENV_NAME\s"; then
-    echo "⚠️ El entorno '$ENV_NAME' ya existe. Eliminándolo..."
-    conda remove --name "$ENV_NAME" --all -y
+    echo "⚠️ El entorno '$ENV_NAME' ya existe."
+    read -p "¿Quieres reemplazarlo? (s/n): " REPLY
+    if [[ "$REPLY" =~ ^[sS]$ ]]; then
+        echo "🗑️ Eliminando entorno '$ENV_NAME'..."
+        conda remove --name "$ENV_NAME" --all -y
+    else
+        echo "⏩ Saltando creación del entorno."
+        conda activate "$ENV_NAME"
+        exit 0
+    fi
 fi
 
 # Crear el entorno desde el archivo YAML

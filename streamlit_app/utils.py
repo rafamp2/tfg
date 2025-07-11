@@ -6,6 +6,7 @@ import streamlit as st
 from src.embeddings import build_base_embeddings
 from src.llms import build_llm
 from src.reranker import build_reranker
+from src.audio_manager import build_tts
 
 
 @st.cache_resource
@@ -21,6 +22,10 @@ def load_llm():
 @st.cache_resource
 def load_reranker():
     return build_reranker()
+
+@st.cache_resource
+def load_tts():
+    return build_tts()
 
 
 def perform(func, filebytes, **kwargs):

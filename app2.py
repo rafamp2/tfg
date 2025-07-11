@@ -16,6 +16,7 @@ user_mode = CFG.DEV_MODE
 LLM = load_llm()
 RERANKER = load_reranker()
 BASE_EMBEDDINGS = load_base_embeddings()
+TTS = load_tts()
 
 @st.cache_resource
 def load_vectordb():
@@ -26,8 +27,7 @@ def load_vectordb():
     raise NotImplementedError
 
 #Engines para tts y stt
-audio_manager = AudioManager()
-r = sr.Recognizer()
+audio_manager = AudioManagerXTTS(TTS)
 
 #Containers de steamlit
 c = st.container(height=410,border=False)
@@ -70,21 +70,11 @@ def print_docs(source_documents):
 
 
 def grabar_callback():
-    with sr.Microphone() as source:
-            r.adjust_for_ambient_noise(source)
-            with ee:
-                with st.spinner('Escuchando lo que dice...'):
-                    audio = r.listen(source=source,phrase_time_limit=1000)
-                st.success('Grabación completada')  
-    try:
-        res = r.recognize_google(audio, language='es-ES')
-    except sr.UnknownValueError:
-        ee.error("No se ha podido reconocer ningún mensaje.")
-        st.session_state['texto'] = ""
-    except sr.RequestError as e:
-        ee.error("Ha habido un error con el servicio de reconocimiento de voz; {0}".format(e))
-        st.session_state['texto'] = ""
-    else:
+    audio_manager.calibrate()
+    with ee:
+        with st.spinner('Escuchando lo que dice...'):
+            res = audio_manager.listen()
+        st.success('Grabación completada')  
         ee.success("Se ha reconocido el siguiente mensaje. Puede editar su mensaje usando el teclado.")    
         st.session_state['texto'] = res
     ee.empty()
