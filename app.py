@@ -8,6 +8,7 @@ from src import CFG
 from src.retrieval_qa import build_retrieval_chain
 from src.vectordb import build_vectordb, delete_vectordb, load_faiss, load_chroma
 from streamlit_app.utils import perform, load_base_embeddings, load_llm, load_reranker
+from langchain.schema import HumanMessage, AIMessage
 
 from src.audio_player import AudioManager
 
@@ -175,13 +176,15 @@ def doc_conv_qa():
     ee.empty()
 
     # Desplegar historial del chat en container c
-    for question, answer in st.session_state.chat_history:
-        if question != "" and answer != "":
+    for msg in st.session_state.chat_history:
+        if msg != "":
             with c:
-                with st.chat_message("user"):
-                    st.markdown(question)
-                with st.chat_message("assistant"):
-                    st.markdown(answer)
+                if isinstance(msg, HumanMessage):
+                    with st.chat_message("user"):
+                        st.markdown(msg)
+                elif isinstance(msg, AIMessage):
+                    with st.chat_message("assistant"):
+                        st.markdown(msg)
 
     c1,c2 = st.columns([9,1])
     with c2:
@@ -210,7 +213,7 @@ def doc_conv_qa():
                 with st.spinner('Obteniendo respuesta de la IA...'):
                     response = retrieval_chain.invoke({
                         "question": user_query,
-                        "chat_history": st.session_state.chat_history,},)
+                        "chat_history": st.session_state.chat_history,})
                     
                 st.success('Respuesta obtenida.') 
                 
@@ -218,7 +221,12 @@ def doc_conv_qa():
             with st.chat_message("assistant"):    
                 st.markdown(response["answer"])
 
-        st.session_state.chat_history.append((response["question"], response["answer"]))
+        st.session_state.chat_history.extend( 
+            [
+                HumanMessage(response["question"]), 
+                AIMessage(response["answer"])
+            ]
+        )
 
         if tts == "texto + voz":
             if not os.path.exists(CFG.TTS_PATH):

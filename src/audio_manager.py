@@ -2,19 +2,24 @@ import torch
 import sounddevice as sd
 from mutagen.mp3 import MP3
 import soundfile as sf
+import os
+from src import CFG
+import pygame
+import time
+import numpy as np
 
 # Para faster-whisper
 from faster_whisper import WhisperModel
 
 # Para XTTS
-from torch.serialization import add_safe_globals
+#from torch.serialization import add_safe_globals
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import XttsAudioConfig, XttsArgs
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.api import TTS
 
 # Registrar clases seguras
-add_safe_globals([XttsConfig, XttsAudioConfig, BaseDatasetConfig, XttsArgs])
+#add_safe_globals([XttsConfig, XttsAudioConfig, BaseDatasetConfig, XttsArgs])
 
 
 def build_tts():
@@ -43,7 +48,7 @@ class AudioManagerXTTS:
         pygame.mixer.init(frequency=48000, buffer=1024)
 
         # Inicializar Whisper para transcripción
-        self.whisper_model = WhisperModel(whisper_model_size, compute_type="auto")
+        self.whisper_model = WhisperModel("medium", compute_type="auto")
 
         # Parámetros de grabación
         self.SAMPLE_RATE = 16000
@@ -51,7 +56,7 @@ class AudioManagerXTTS:
         self.SILENCE_THRESHOLD = 0.15
         self.MAX_SILENT_BLOCKS = 4
 
-    def play_audio(self, file_path, delete_file=True):
+    def play_audio(self, audios_dir, sleep_during_playback=True, delete_file=False, play_using_music=True):
         """
         Parameters:
         file_path (str): path to the audio file
@@ -59,6 +64,7 @@ class AudioManagerXTTS:
         delete_file (bool): means file is deleted after playback (note that this shouldn't be used for multithreaded function calls)
         play_using_music (bool): means it will use Pygame Music, if false then uses pygame Sound instead
         """
+        file_path = os.path.join(audios_dir, CFG.AUDIO_CONFIG.VOICE_FILE)
         print(f"Reproduciendo audio: {file_path}")
         if not pygame.mixer.get_init():
             pygame.mixer.init(frequency=48000, buffer=1024)
@@ -138,7 +144,7 @@ class AudioManagerXTTS:
         return full_text.strip()
 
     def listen(self):
-        audio = grabar_callback()
+        audio = record_callback()
         return transcribe_audio(audio)
 
     def sintetize_text(self, text, output_path="voz_generada.wav"):
@@ -151,7 +157,8 @@ class AudioManagerXTTS:
         )
         return output_path
 
-    def speak(self, text, output_path="voz_generada.wav", delete_after_play=True):
+    def speak(self, text, audio_dir, filename = "voz_generada.wav", delete_after_play=True):
+        output_path = os.path.join(audio_dir,filename)
         # Generar el audio con XTTS
         self.tts.tts_to_file(
             text=text,
@@ -160,4 +167,4 @@ class AudioManagerXTTS:
             language=self.language
         )
         # Reproducir y eliminar si se desea
-        self.play_audio(output_path, delete_file=delete_after_play)
+        self.play_audio(audio_dir, delete_file=delete_after_play)

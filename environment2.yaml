@@ -9,6 +9,10 @@ dependencies:
   - libstdcxx-ng
   - scikit-build-core
   - pip:
+      #- torch==2.2.2+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+      #- torchvision==0.17.2+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+      #- torchaudio==2.2.2+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+
       - chromadb==0.4.24
       - ctransformers==0.2.27
       - faiss-cpu==1.8.0
@@ -22,8 +26,9 @@ dependencies:
       - sentence-transformers==2.6.0
       - simsimd==3.3.0
       - streamlit==1.33.0
-      - torch==2.2.2
-      - transformers==4.39.3
+      - transformers>=4.38.0
+      - accelerate
+      - bitsandbytes
       - umap-learn==0.5.5
       - unstructured==0.13.2
       - unstructured-inference==0.7.27
@@ -39,7 +44,6 @@ dependencies:
       - pyaudio==0.2.14
       - sounddevice==0.4.6
       - faster-whisper
-      # Agregados para TTS:
       - TTS==0.22.0
       - numpy
       - scipy
@@ -48,3 +52,5 @@ dependencies:
       - numba
       - torchinfo
       - multiprocess
+      - auto-gptq
+

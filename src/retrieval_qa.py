@@ -4,26 +4,20 @@ Retrieval QA
 
 from typing import List
 
-from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
-from langchain.embeddings.base import Embeddings
 from langchain.llms.base import LLM
 from langchain.prompts import PromptTemplate
 from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import (
-    DocumentCompressorPipeline,
-    EmbeddingsFilter,
-)
+
 from langchain.retrievers.document_compressors.base import BaseDocumentCompressor
 from langchain.schema import Document
-from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores.base import VectorStore
-from langchain_core.retrievers import BaseRetriever
 from langchain_core.vectorstores import VectorStoreRetriever
-from langchain_community.document_transformers import EmbeddingsRedundantFilter
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableSequence
 
 from src import CFG
-from src.prompt_templates import QA_TEMPLATE, CONDENSE_QUESTION_TEMPLATE
+from src.prompt_templates import contextualize_q_prompt, qa_prompt
 
 
 class VectorStoreRetrieverWithScores(VectorStoreRetriever):
@@ -56,27 +50,6 @@ class VectorStoreRetrieverWithScores(VectorStoreRetriever):
             raise ValueError(f"search_type of {self.search_type} not allowed.")
         return docs
 
-
-#VectorStoreRetriever. k = amount of documents to return
-def build_base_retriever(vectordb: VectorStore) -> VectorStoreRetriever:
-    return VectorStoreRetrieverWithScores(
-        vectorstore=vectordb, search_kwargs={"k": CFG.BASE_RETRIEVER_CONFIG.SEARCH_K}
-    )
-
-
-#Multivector retriever
-def build_multivector_retriever(
-    vectorstore: VectorStore, docstore
-) -> VectorStoreRetriever:
-    from langchain.retrievers.multi_vector import MultiVectorRetriever, SearchType
-
-    return MultiVectorRetriever(
-        vectorstore=vectorstore,
-        docstore=docstore,
-        id_key="doc_id",
-        search_type=SearchType.mmr,
-    )
-
 #Contextual Compression retriever that uses reranking as the base compressor for the documents
 def build_rerank_retriever(
     vectordb: VectorStore, reranker: BaseDocumentCompressor
@@ -89,51 +62,23 @@ def build_rerank_retriever(
     )
 
 
-#Uses DocumentCompressorPipeline to combine multiple compressors in sequence
-def build_compression_retriever(
-    vectordb: VectorStore, embeddings: Embeddings
-) -> ContextualCompressionRetriever:
-    base_retriever = VectorStoreRetrieverWithScores(
-        vectorstore=vectordb,
-        search_kwargs={"k": CFG.COMPRESSION_RETRIEVER_CONFIG.SEARCH_K},
-    )
+def build_contextualize_q_chain(contextualize_q_system_prompt: str, llm : LLM):
 
-    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=0, separator=". ")
-    redundant_filter = EmbeddingsRedundantFilter(embeddings=embeddings)
-    relevant_filter = EmbeddingsFilter(
-        embeddings=embeddings,
-        similarity_threshold=CFG.COMPRESSION_RETRIEVER_CONFIG.SIMILARITY_THRESHOLD,
-    )
-    pipeline_compressor = DocumentCompressorPipeline(
-        transformers=[splitter, redundant_filter, relevant_filter]
-    )
-    compression_retriever = ContextualCompressionRetriever(
-        base_compressor=pipeline_compressor, base_retriever=base_retriever
-    )
-    return compression_retriever
+    contextualize_q_chain = contextualize_q_prompt | llm | StrOutputParser()
+
+    return contextualize_q_chain
+
+def contextualize_question(input: dict, llm: LLM, contextualize_q_chain: RunnableSequence):
+    if input.get("chat_history"):
+        return contextualize_q_chain
+    else:
+        return input["question"]
 
 
-def build_retrieval_qa(llm: LLM, retriever: BaseRetriever) -> RetrievalQA:
-    """Builds a retrieval QA model.
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
 
-    Args:
-        llm (LLM): The language model to use.
-        retriever (BaseRetriever): The retriever to use.
-
-    Returns:
-        RetrievalQA: The retrieval QA model.
-    """
-    retrieval_qa = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True,
-        chain_type_kwargs={"prompt": PromptTemplate.from_template(QA_TEMPLATE)},
-    )
-    return retrieval_qa
-
-
-def build_retrieval_chain(
+def build_RAG_chain(
     vectordb: VectorStore, reranker: BaseDocumentCompressor, llm: LLM
 ) -> ConversationalRetrievalChain:
     """Builds a conversational retrieval chain model.
@@ -145,16 +90,16 @@ def build_retrieval_chain(
     Returns:
         ConversationalRetrievalChain: The conversational retrieval chain model.
     """
+    contextualize_q_chain = build_contextualize_q_chain(contextualize_q_prompt, llm)
     retriever = build_rerank_retriever(vectordb, reranker)
-
-    retrieval_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True,
-        combine_docs_chain_kwargs={"prompt": PromptTemplate.from_template(QA_TEMPLATE)},
-        condense_question_prompt=PromptTemplate.from_template(
-            CONDENSE_QUESTION_TEMPLATE
-        ),
+    rag_chain = (
+        RunnablePassthrough.assign(
+            context = contextualize_question | retriever | format_docs
+        )
+        | qa_prompt 
+        | llm
     )
-    return retrieval_chain
+
+    return rag_chain
+
+

@@ -8,7 +8,6 @@ from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 from src import CFG
-from src.prompt_templates import HYDE_TEMPLATE
 
 
 def build_base_embeddings():
@@ -18,14 +17,3 @@ def build_base_embeddings():
         model_kwargs={"device": CFG.DEVICE},
     )
     return base_embeddings
-
-
-def build_hyde_embeddings(llm, base_embeddings):
-    #Builds hypothetical document embeddings.
-    prompt = PromptTemplate.from_template(HYDE_TEMPLATE)
-    llm_chain = LLMChain(llm=llm, prompt=prompt)
-
-    embeddings = HypotheticalDocumentEmbedder(
-        llm_chain=llm_chain, base_embeddings=base_embeddings
-    )
-    return embeddings

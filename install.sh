@@ -2,7 +2,7 @@
 
 # Nombre del entorno Conda y archivo YAML
 ENV_NAME="tfg2"
-ENV_YAML="environment.yaml"
+ENV_YAML="environment2.yaml"
 
 # Verifica que conda esté disponible
 if ! command -v conda &> /dev/null; then
@@ -55,5 +55,10 @@ pip install .
 
 # Volver al directorio original
 cd ..
+
+pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu121
+pip install git+https://github.com/huggingface/optimum.git
+
+conda deactivate 
 
 echo "✅ Instalación completada con éxito."

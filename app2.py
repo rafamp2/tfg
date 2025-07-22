@@ -6,9 +6,9 @@ from PIL import Image
 from src import CFG
 from src.retrieval_qa import build_retrieval_chain
 from src.vectordb import build_vectordb, delete_vectordb, load_faiss, load_chroma
-from streamlit_app.utils import perform, load_base_embeddings, load_llm, load_reranker
+from streamlit_app.utils import perform, load_base_embeddings, load_llm, load_reranker, load_tts
 
-from src.audio_player import AudioManager
+from src.audio_manager import AudioManagerXTTS
 
 st.set_page_config(page_title="Conversación con Don Francisco de Arobe",layout="wide")
 user_mode = CFG.DEV_MODE
@@ -160,7 +160,6 @@ def doc_conv_qa():
 
     st.sidebar.write("---")
     init_chat_history()
-    audio_manager.config_tts()
     ee.empty()
 
     # Desplegar historial del chat en container c
@@ -210,9 +209,9 @@ def doc_conv_qa():
         st.session_state.chat_history.append((response["question"], response["answer"]))
 
         if tts == "texto + voz":
-            if not os.path.exists(CFG.TTS_PATH):
-                os.mkdir(CFG.TTS_PATH)
-            audio_manager.play_tts(CFG.TTS_PATH,response["answer"])
+            if not os.path.exists(CFG.AUDIO_CONFIG.AUDIO_DIR):
+                os.mkdir(CFG.AUDIO_CONFIG.AUDIO_DIR)
+            audio_manager.speak(response["answer"],CFG.AUDIO_CONFIG.AUDIO_DIR)
 
 
 
