@@ -1,187 +1,236 @@
-"""
-LLM
-"""
+from src import CFG
+import os
 
 import os
-from src import CFG
-from langchain.callbacks import StreamingStdOutCallbackHandler
 
-# Para usar CTransformers
-from langchain_community.llms.ctransformers import CTransformers
-from auto_gptq import exllama_set_max_input_length
+from langchain.callbacks import StreamingStdOutCallbackHandler
+from langchain_core.runnables import Runnable
+from langchain.prompts.chat import ChatPromptValue
+from langchain_core.messages import AIMessage, HumanMessage
+from typing import Optional, Union
+
 
 # Para usar LlamaCpp
-from langchain_community.llms.llamacpp import LlamaCpp
+from llama_cpp import Llama
 
 # Para usar una API de OpenAI
 from langchain_openai import ChatOpenAI
 
-# Para usar la biblioteca transformers
+# Para usar transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-from langchain.llms import HuggingFacePipeline
+from langchain_community.llms import HuggingFacePipeline
+from auto_gptq import exllama_set_max_input_length
+
+# Para restaurar la caché
 import torch
-
-
-
+import gc
 
 def build_llm():
-    """Builds LLM defined in config."""
-    if CFG.WRAPPER == "TRANSFORMERS":
-            return build_transformers(
-                os.path.join(CFG.MODELS_DIR, CFG.LLM_PATH),
+    return Llm(
+        model_path = os.path.join(CFG.MODELS_DIR,CFG.LLM_PATH), 
+        wrapper = CFG.WRAPPER
+    )
+
+class Llm(Runnable):
+    tokenizer: Optional[AutoTokenizer]
+    model: Union[AutoModelForCausalLM, Llama, ChatOpenAI]
+    pipe: Optional[HuggingFacePipeline]
+
+    def __init__(   
+        self,
+        model_path: str,
+        wrapper: str,
+    ):
+        torch.cuda.empty_cache()
+        gc.collect()
+
+        """Builds LLM defined in config."""
+        if wrapper == "TRANSFORMERS":
+            self.build_transformers(
+                model_path,
                 config={
                     "max_new_tokens": CFG.LLM_CONFIG.MAX_NEW_TOKENS,
                     "temperature": CFG.LLM_CONFIG.TEMPERATURE,
                     "repetition_penalty": CFG.LLM_CONFIG.REPETITION_PENALTY,
+                    "top_p": CFG.LLM_CONFIG.TOP_P
                 },
                 max_input_length = CFG.LLM_CONFIG.CONTEXT_LENGTH
             )
-    elif CFG.LLM_PATH.endswith(".gguf"):
-        
-        if CFG.WRAPPER == "LLAMACPP":
-            return build_llamacpp(
-                os.path.join(CFG.MODELS_DIR, CFG.LLM_PATH),
+        elif wrapper == "LLAMACPP":
+            self.build_llamacpp(
+                model_path=model_path,
+                model_name=CFG.LLM_NAME,
+                config={
+                    "n_ctx": CFG.LLM_CONFIG.CONTEXT_LENGTH,
+                    "n_gpu_layers": CFG.LLM_CONFIG.N_GPU_LAYERS,
+                    "n_threads":  CFG.LLM_CONFIG.N_THREADS,
+                },
+            )
+
+        elif wrapper.startswith("http"):
+            self.chatopenai(
+                CFG.LLM_PATH,
                 config={
                     "max_tokens": CFG.LLM_CONFIG.MAX_NEW_TOKENS,
                     "temperature": CFG.LLM_CONFIG.TEMPERATURE,
-                    "repeat_penalty": CFG.LLM_CONFIG.REPETITION_PENALTY,
-                    "n_ctx": CFG.LLM_CONFIG.N_CTX,
-                    "n_gpu_layers": CFG.LLM_CONFIG.N_GPU_LAYERS,
-                },
-            )
-            
-        elif CFG.WRAPPER == "CTRANSFORMERS":
-            return build_ctransformers(
-                os.path.join(CFG.MODELS_DIR, CFG.LLM_PATH),
-                config={
-                    "max_new_tokens": CFG.LLM_CONFIG.MAX_NEW_TOKENS,
-                    "temperature": CFG.LLM_CONFIG.TEMPERATURE,
-                    "repetition_penalty": CFG.LLM_CONFIG.REPETITION_PENALTY,
-                    "context_length": CFG.LLM_CONFIG.CONTEXT_LENGTH,
                 },
             )
         else:
             raise NotImplementedError
-    elif CFG.LLM_PATH.startswith("http"):
-        return chatopenai(
-            CFG.LLM_PATH,
-            config={
-                "max_tokens": CFG.LLM_CONFIG.MAX_NEW_TOKENS,
-                "temperature": CFG.LLM_CONFIG.TEMPERATURE,
-            },
+        
+
+        
+
+    def invoke(self, input: ChatPromptValue, config=None) -> str:
+        # Obtener la lista de mensajes de ChatPromptValue
+        chat = input.messages
+
+        formatted_chat = []
+
+        for msg in chat:
+            if isinstance(msg, HumanMessage):
+                role = "user"
+            elif isinstance(msg, AIMessage):
+                role = "assistant"
+            else:
+                continue  # o lanza error si es necesario
+
+            formatted_chat.append({"role": role, "content": msg.content})
+
+        if CFG.WRAPPER == "TRANSFORMERS":
+            return self.invoke_transformers(formatted_chat)
+        elif CFG.WRAPPER == "LLAMACPP":
+            return self.invoke_llamacpp(formatted_chat)
+        elif CFG.LLM_PATH.startswith("http"):
+            return self.invoke_chatopenai(formatted_chat)
+
+
+    # Métodos para usar transformers
+
+    def build_transformers(
+        self,
+        model_name: str,
+        config: dict | None = None,
+        max_input_length: int = 4096
+    ):
+        """
+        Builds a HuggingFacePipeline-compatible LLM for LangChain using transformers.
+
+        Args:
+            model_name_or_path (str): HuggingFace model ID or path.
+            config (dict, optional): Generation config. Defaults to common values.
+
+        Returns:
+            HuggingFacePipeline: LangChain-compatible LLM.
+        """
+        if config is None:
+            config = {
+                "max_new_tokens": 512,
+                "temperature": 0.7,
+                "repetition_penalty": 1.1,
+                "do_sample": False,
+                "top_p": 0.95,
+            }
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, legacy=False)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            device_map=CFG.LLM_DEVICE,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            revision="float16",
         )
-    else:
-        raise NotImplementedError
+
+        # Para el tamaño del contexto
+        if hasattr(self.model.config, "max_position_embeddings"):
+            self.model.config.max_position_embeddings = max_input_length
+        elif hasattr(self.model, "exllama_config") and quant_config and getattr(quant_config, "desc_act", False):
+            self.model = exllama_set_max_input_length(self.model, max_input_length=max_input_length)
+        
+        
+        self.pipe =  pipeline(
+            "text-generation",
+            model= self.model,
+            tokenizer= self.tokenizer,
+            config=config,            
+        )
+
+    def invoke_transformers(self,formatted_chat: list[dict[str, str]]):
+        # Aplica la plantilla del tokenizer
+        prompt = self.tokenizer.apply_chat_template(
+            formatted_chat,
+            tokenize=False,
+            add_generation_prompt=CFG.LLM_CONFIG.ADD_PROMPT
+        )
+
+         # Genera texto usando pipeline
+        outputs = self.pipe(
+            prompt,
+            return_full_text=False  # Para que solo devuelva la respuesta generada, sin repetir el prompt
+        )
+
+        # Extrae y limpia la respuesta generada
+        response = outputs[0]["generated_text"].strip()
+        return response
 
 
-def build_ctransformers(
-    model_path: str, config: dict | None = None, debug: bool = False, **kwargs
-):
-    """Builds LLM using CTransformers."""
-    if config is None:
-        config = {
-            "max_new_tokens": 512,
-            "temperature": 0.2,
-            "repetition_penalty": 1.1,
-            "context_length": 4000,
-        }
+    # Métodos para usar llama_cpp
 
-    llm = CTransformers(
-        model=model_path,
-        config=config,
-        callbacks=[StreamingStdOutCallbackHandler()] if debug else None,
-        **kwargs,
-    )
-    return llm
-
-
-def build_llamacpp(
-    model_path: str, config: dict | None = None, debug: bool = False, **kwargs
-):
-    """Builds LLM using LlamaCpp."""
-    if config is None:
-        config = {
-            "max_tokens": 512,
-            "temperature": 0.2,
-            "repeat_penalty": 1.1,
-            "n_ctx": 16,
-        }
-
-    llm = LlamaCpp(
-        model_path=model_path,
-        **config,
-        callbacks=[StreamingStdOutCallbackHandler()] if debug else None,
-        **kwargs,
-    )
-    return llm
-
-def build_transformers(
-    model_name_or_path: str,
-    config: dict | None = None,
-    debug: bool = False,
-    max_input_length: int = 4096,
-    **kwargs
-):
-    """
-    Builds a HuggingFacePipeline-compatible LLM for LangChain using transformers.
-
-    Args:
-        model_name_or_path (str): HuggingFace model ID or path.
-        config (dict, optional): Generation config. Defaults to common values.
-        debug (bool): If True, prints model and config info.
-        **kwargs: Extra kwargs passed to the pipeline.
-
-    Returns:
-        HuggingFacePipeline: LangChain-compatible LLM.
-    """
-    if config is None:
-        config = {
-            "max_new_tokens": 512,
-            "temperature": 0.7,
-            "repetition_penalty": 1.1,
-            "do_sample": True,
-            "top_p": 0.95,
-        }
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name_or_path,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto",
-        low_cpu_mem_usage=True
-    )
-    # Para el tamaño del contexto
-    model = exllama_set_max_input_length(model, max_input_length=max_input_length)
-
-    # Convertimos el modelo en un pipeline para más tarde ajustarlo a la interfaz de modelo de Langchain
-    pipe = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        **config,
+    def build_llamacpp(
+        self,
+        model_path: str, 
+        model_name: str,
+        config: dict | None = None, 
+        debug: bool = False, 
         **kwargs
-    )
+    ):
+        """Builds LLM using LlamaCpp."""
+        if config is None:
+            config = {
+                "max_tokens": 512,
+                "temperature": 0.2,
+                "repeat_penalty": 1.1,
+                "n_ctx": 16,
+            }
 
-    if debug:
-        print(f"Loaded model: {model_name_or_path}")
-        print(f"Generation config: {config}")
 
-    # HuggingFacePipeline transforma el pipeline en una instancia de modelo compatible con Langchain
-    return HuggingFacePipeline(pipeline=pipe)
 
-def chatopenai(openai_api_base: str, config: dict | None = None, **kwargs):
-    """For LLM deployed as an API."""
-    if config is None:
-        config = {
-            "max_tokens": 512,
-            "temperature": 0.2,
-        }
+        self.model = Llama(
+            model_path=os.path.join(model_path,model_name),
+            **config,
+        )
 
-    llm = ChatOpenAI(
-        openai_api_base=openai_api_base,
-        openai_api_key="sk-xxx",
-        **config,
-        streaming=True,
-        **kwargs,
-    )
-    return llm
+    def invoke_llamacpp(self,formatted_chat: list[dict[str, str]]):
+        return self.model.create_chat_completion(
+            messages=formatted_chat,
+            max_tokens= CFG.LLM_CONFIG.MAX_NEW_TOKENS,
+            temperature= CFG.LLM_CONFIG.TEMPERATURE,
+            repeat_penalty= CFG.LLM_CONFIG.REPETITION_PENALTY,
+        )['choices'][0]['message']['content']
+
+    # Métodos para usar API de OpenAI
+
+    def chatopenai(
+        self,
+        openai_api_base: str, 
+        config: dict | None = None, 
+        **kwargs
+    ):
+        """For LLM deployed as an API."""
+        if config is None:
+            config = {
+                "max_tokens": 512,
+                "temperature": 0.2,
+            }
+
+        self.chat_openai_model = ChatOpenAI(
+            openai_api_base=openai_api_base,
+            openai_api_key="sk-xxx",
+            **config,
+            streaming=True,
+            **kwargs,
+        )
+
+    def invoke_chatopenai(self,formatted_chat: list[dict[str, str]]):
+        # Definir en caso de que se quiera usar OpenAI
+        return None

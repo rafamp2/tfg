@@ -171,3 +171,4 @@ models/*
 tfg_marta/*
 vectordb_*/
 *.pkl
+trash/

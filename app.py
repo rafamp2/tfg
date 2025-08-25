@@ -6,11 +6,9 @@ from PIL import Image
 
 from src import CFG
 from src.retrieval_qa import build_retrieval_chain
+from streamlit_app.utils import perform, load_base_embeddings, load_llm, load_reranker, load_audio_manager
 from src.vectordb import build_vectordb, delete_vectordb, load_faiss, load_chroma
-from streamlit_app.utils import perform, load_base_embeddings, load_llm, load_reranker
 from langchain.schema import HumanMessage, AIMessage
-
-from src.audio_player import AudioManager
 
 st.set_page_config(page_title="Conversación con Don Francisco de Arobe",layout="wide")
 user_mode = CFG.DEV_MODE
@@ -18,6 +16,7 @@ user_mode = CFG.DEV_MODE
 LLM = load_llm()
 RERANKER = load_reranker()
 BASE_EMBEDDINGS = load_base_embeddings()
+audio_manager = load_audio_manager()
 
 @st.cache_resource
 def load_vectordb():
@@ -26,10 +25,6 @@ def load_vectordb():
     if CFG.VECTORDB_TYPE == "chroma":
         return load_chroma(BASE_EMBEDDINGS)
     raise NotImplementedError
-
-#Engines para tts y stt
-audio_manager = AudioManager()
-r = sr.Recognizer()
 
 #Containers de steamlit
 c = st.container(height=410,border=False)
@@ -72,21 +67,11 @@ def print_docs(source_documents):
 
 
 def grabar_callback():
-    with sr.Microphone() as source:
-            r.adjust_for_ambient_noise(source)
-            with ee:
-                with st.spinner('Escuchando lo que dice...'):
-                    audio = r.listen(source=source,phrase_time_limit=1000)
-                st.success('Grabación completada')  
-    try:
-        res = r.recognize_google(audio, language='es-ES')
-    except sr.UnknownValueError:
-        ee.error("No se ha podido reconocer ningún mensaje.")
-        st.session_state['texto'] = ""
-    except sr.RequestError as e:
-        ee.error("Ha habido un error con el servicio de reconocimiento de voz; {0}".format(e))
-        st.session_state['texto'] = ""
-    else:
+    audio_manager.calibrate()
+    with ee:
+        with st.spinner('Escuchando lo que dice...'):
+            res = audio_manager.listen()
+        st.success('Grabación completada')  
         ee.success("Se ha reconocido el siguiente mensaje. Puede editar su mensaje usando el teclado.")    
         st.session_state['texto'] = res
     ee.empty()
@@ -158,21 +143,25 @@ def doc_conv_qa():
 
         try:
             with st.status("Carga de datos", expanded=False) as status:
-                vectordb = load_vectordb()
-                st.write("VectorDB: Carga Completada.")
-                retrieval_chain = build_retrieval_chain(vectordb, RERANKER, LLM)
-                st.write("Cadena de Recuperación: Carga Completada.")
+                if "retrieval_chain" not in st.session_state:
+                    vectordb = load_vectordb()
+                    st.write("VectorDB: Carga Completada.")
+                    st.session_state["retrieval_chain"] = build_retrieval_chain(vectordb, RERANKER, LLM)
+                    st.write("Cadena de Recuperación: Carga Completada.")
+                
+                retrieval_chain = st.session_state["retrieval_chain"]
                 status.update(
                     label="Sistema de IA: Carga Completada.", expanded=False
                 )
-        except Exception:
+        except Exception as e:
+            print("Error charging AI system:\n " + str(e))
             st.error("La carga del Sistema de IA ha encontrado un error.")
             st.stop()
 
 
     st.sidebar.write("---")
     init_chat_history()
-    audio_manager.config_tts()
+    # TODO que hace esto: audio_manager.config_tts()
     ee.empty()
 
     # Desplegar historial del chat en container c
@@ -181,10 +170,10 @@ def doc_conv_qa():
             with c:
                 if isinstance(msg, HumanMessage):
                     with st.chat_message("user"):
-                        st.markdown(msg)
+                        st.markdown(msg.content)
                 elif isinstance(msg, AIMessage):
                     with st.chat_message("assistant"):
-                        st.markdown(msg)
+                        st.markdown(msg.content)
 
     c1,c2 = st.columns([9,1])
     with c2:
@@ -219,19 +208,19 @@ def doc_conv_qa():
                 
             ee.empty()    
             with st.chat_message("assistant"):    
-                st.markdown(response["answer"])
+                st.markdown(response)
 
         st.session_state.chat_history.extend( 
             [
-                HumanMessage(response["question"]), 
-                AIMessage(response["answer"])
+                HumanMessage(user_query), 
+                AIMessage(response)
             ]
         )
 
         if tts == "texto + voz":
-            if not os.path.exists(CFG.TTS_PATH):
-                os.mkdir(CFG.TTS_PATH)
-            audio_manager.play_tts(CFG.TTS_PATH,response["answer"])
+            if not os.path.exists(CFG.AUDIO_CONFIG.AUDIO_DIR):
+                os.mkdir(CFG.AUDIO_CONFIG.AUDIO_DIR)
+            audio_manager.speak(response)
 
 
 

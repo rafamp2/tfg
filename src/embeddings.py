@@ -5,7 +5,7 @@ import os
 
 from langchain.chains import HypotheticalDocumentEmbedder, LLMChain
 from langchain.prompts import PromptTemplate
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from src import CFG
 

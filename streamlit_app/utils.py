@@ -1,12 +1,14 @@
 import os
 import tempfile
+from src import CFG
 
 import streamlit as st
 
 from src.embeddings import build_base_embeddings
 from src.llms import build_llm
 from src.reranker import build_reranker
-from src.audio_manager import build_tts
+from src.audio_manager import AudioManagerXTTS
+
 
 
 @st.cache_resource
@@ -23,10 +25,10 @@ def load_llm():
 def load_reranker():
     return build_reranker()
 
-@st.cache_resource
-def load_tts():
-    return build_tts()
 
+@st.cache_resource
+def load_audio_manager():
+    return AudioManagerXTTS()
 
 def perform(func, filebytes, **kwargs):
     """

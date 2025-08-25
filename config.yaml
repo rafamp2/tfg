@@ -1,36 +1,39 @@
 DEV_MODE: user ##user or dev, cambia la autorizacion sobre cosas que se pueden hacer
-DEVICE: cuda
+
+# Memoria sobre la que se cargarn los modelos
+# cuda --> VRAM
+# cpu --> RAM
+DEVICE: cpu
+LLM_DEVICE: cuda
 
 MODELS_DIR: ./tfg_marta/models
 
-EMBEDDINGS_PATH: all-MiniLM-L6-v2
+EMBEDDINGS_PATH: multilingual-e5-large-instruct
 
 VECTORDB_TYPE: chroma
-VECTORDB_PATH: vectordb/chroma
+VECTORDB_PATH: ./vectordb/chroma
 
 TTS_PATH: src/tmp
 
 # Los wrappers son: TRANSFORMERS, LLAMACPP y CTRANSFORMERS
-WRAPPER: TRANSFORMERS
+WRAPPER: LLAMACPP
 
-#mistral7b q5: mistral-7b-instruct-v0.2.Q5_K_M.gguf
-#mistral7b q6: mistral-7b-instruct-v0.2.Q6_K.gguf
-#mistral7b q8: mistral-7b-instruct-v0.2.Q8_0.gguf
-#llama7b q5: llama-7b.Q5_K_M.gguf
-#llama7b q6: llama-7b.Q6_K.gguf
-#google gemma 2b GPTQ: gemma-1.1-2b-it-GPTQ
-LLM_PATH: gemma-1.1-2b-it-GPTQ
+# Carpeta al LLM
+LLM_PATH: gemma-2-9b-it-GGUF
 
-# Puede ser: llama, mistral, zephyr o gemma
-PROMPT_TYPE: gemma
+# Para modelos que no sean una carpeta, sino un solo archivo (.gguf especialmente) 
+# hay que especificar el archivo (y también la carpeta en el LLM_PATH)
+LLM_NAME: gemma-2-9b-it-Q6_K.gguf 
 
 LLM_CONFIG:
-  MAX_NEW_TOKENS: 512
-  TEMPERATURE: 0.2
+  MAX_NEW_TOKENS: 1024
+  TEMPERATURE: 0.7
+  TOP_P: 0.8
   REPETITION_PENALTY: 1.1
   CONTEXT_LENGTH: 4096
-  N_CTX: 2048
   N_GPU_LAYERS: 12
+  N_THREADS: 1
+  ADD_PROMPT: False
 
 BASE_RETRIEVER_CONFIG:
   SEARCH_K: 4
@@ -46,11 +49,13 @@ COMPRESSION_RETRIEVER_CONFIG:
   SEARCH_K: 10
   SIMILARITY_THRESHOLD: 0.5
 
-TTS_PATH: XTTS-v2
-TTS_CONFIG: XTTS-v2/config.json
+TTS_MODEL: XTTS-v2
+TTS_CONFIG: config.json
+WHISPER_MODEL: medium
 AUDIO_CONFIG:
   AUDIO_DIR: ./audio
   VOICE_FILE: voice_style.wav
+  GPT_COND_LEN: 5
   
 
 TEXT_SPLIT_MODE: default  

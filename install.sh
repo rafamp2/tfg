@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Nombre del entorno Conda y archivo YAML
-ENV_NAME="tfg2"
-ENV_YAML="environment2.yaml"
+ENV_NAME="tfg"
+ENV_YAML="environment.yaml"
 
 # Verifica que conda esté disponible
 if ! command -v conda &> /dev/null; then

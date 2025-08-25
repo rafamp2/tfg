@@ -10,7 +10,7 @@ from chromadb.config import Settings
 from langchain.embeddings.base import Embeddings
 from langchain.schema import Document
 from langchain.vectorstores.base import VectorStore
-from langchain_community.vectorstores.chroma import Chroma
+from langchain_chroma import Chroma
 from langchain_community.vectorstores.faiss import FAISS
 
 from src import CFG, logger
