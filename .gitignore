@@ -167,7 +167,6 @@ cython_debug/
 .vscode/
 
 # others
-models/*
 tfg_marta/*
 vectordb_*/
 *.pkl
