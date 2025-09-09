@@ -28,7 +28,7 @@ class AudioManagerXTTS:
         if not os.path.exists(self.speaker_wav):
             raise FileNotFoundError(f"El archivo '{self.speaker_wav}' no fue encontrado.")
 
-        self.device = "cuda" if (CFG.DEVICE == "cuda" and torch.cuda.is_available()) else "cpu"
+        self.device = "cuda" if (CFG.TTS_DEVICE == "cuda" and torch.cuda.is_available()) else "cpu"
 
         # Inicializar el modelo TTS 
         xtts_dir = os.path.join(CFG.MODELS_DIR, CFG.TTS_MODEL) 

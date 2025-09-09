@@ -3,8 +3,10 @@ DEV_MODE: user ##user or dev, cambia la autorizacion sobre cosas que se pueden h
 # Memoria sobre la que se cargarn los modelos
 # cuda --> VRAM
 # cpu --> RAM
-DEVICE: cpu
 LLM_DEVICE: cuda
+TTS_DEVICE: cuda
+DEVICE: cpu
+
 
 MODELS_DIR: ./tfg_marta/models
 
