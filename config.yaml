@@ -8,7 +8,7 @@ TTS_DEVICE: cuda
 DEVICE: cpu
 
 
-MODELS_DIR: ./tfg_marta/models
+MODELS_DIR: ./models
 
 EMBEDDINGS_PATH: multilingual-e5-large-instruct
 
@@ -33,7 +33,7 @@ LLM_CONFIG:
   TOP_P: 0.8
   REPETITION_PENALTY: 1.1
   CONTEXT_LENGTH: 4096
-  N_GPU_LAYERS: 12
+  N_GPU_LAYERS: 0
   N_THREADS: 1
   ADD_PROMPT: False
 

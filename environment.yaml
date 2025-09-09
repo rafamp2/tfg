@@ -1,4 +1,4 @@
-name: tfg3
+name: tfg
 channels:
   - conda-forge
   - defaults

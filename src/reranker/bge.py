@@ -74,7 +74,7 @@ class BGEReranker(BaseDocumentCompressor):
         return results[: self.top_n]
     """Reranker based on BGE-reranker (https://huggingface.co/BAAI/bge-reranker-base)."""
 
-    model_path: str = os.path.join("../tfg/tfg_marta/models/bge-reranker-base")
+    model_path: str = os.path.join(CFG.MODELS_DIR,CFG.RERANKER_PATH)
     top_n: int = 4
     """Number of documents to return."""
     model_config = {
